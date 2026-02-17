@@ -1,24 +1,31 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Header, HTTPException
 import pandas as pd
 import base64
 import io
 
 app = FastAPI()
 
+# 1. Define your secret key
+SAFE_KEY = "MyPrivateJDEKey2026"
+
 @app.post("/convert")
-async def convert_excel_to_csv(data: dict = Body(...)):
-    # 1. Get the base64 string from the JDE request
+async def convert_excel_to_csv(
+    # This looks for a header named 'X-API-KEY'
+    x_api_key: str = Header(None), 
+    data: dict = Body(...)
+):
+    # 2. Security Check: Validate the key before doing any work
+    if x_api_key != SAFE_KEY:
+        raise HTTPException(status_code=403, detail="Unauthorized: Invalid API Key")
+
+    # --- Your existing logic ---
     encoded_file = data.get("file_data")
-    
     if not encoded_file:
         return {"status": "error", "message": "No file data received"}
 
     try:
-        # 2. Decode base64 to bytes and read into Pandas
         decoded_bytes = base64.b64decode(encoded_file)
         df = pd.read_excel(io.BytesIO(decoded_bytes))
-        
-        # 3. Convert to CSV string
         csv_output = df.to_csv(index=False)
         
         return {
@@ -30,5 +37,4 @@ async def convert_excel_to_csv(data: dict = Body(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    # Use 9225 since we know that port is behaving
     uvicorn.run(app, host="0.0.0.0", port=9225)
